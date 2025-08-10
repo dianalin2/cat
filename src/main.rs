@@ -29,10 +29,8 @@ async fn servo_control(pwm: &'static SimplePwmMutex, channel: Channel) {
         let pos = SERVO_POSITION.load(Ordering::Relaxed);
 
         if let Some(pwm_ref) = pwm.lock().await.as_mut() {
-            // 5% duty cycle = -90 degrees, 7.5% duty cycle = 0 degrees, 10% duty cycle = 90 degrees
-            let duty_cycle = ((pos + 90 + 180) as u32) * (pwm_ref.max_duty_cycle() as u32) / 3600;
+            let duty_cycle = ((pos + 90 + 45) as u32) * (pwm_ref.max_duty_cycle() as u32) / 1800;
 
-            // let duty_cycle = (pos as u32) * pwm_ref.max_duty_cycle() as u32 / 100; // 10% duty cycle for 90 degrees
             info!(
                 "Updating servo position. Position: {} degrees, Duty Cycle: {}/{}",
                 pos,
@@ -72,9 +70,11 @@ async fn main(spawner: Spawner) {
 
     loop {
         // Simulate changing the servo position
-        for pos in (0..=90).step_by(5) {
+        for pos in (-90..=90).step_by(45) {
             SERVO_POSITION.store(pos, Ordering::Relaxed);
-            embassy_time::Timer::after(Duration::from_millis(250)).await; // Wait 1 second between changes
+            embassy_time::Timer::after(Duration::from_millis(1000)).await; // Wait 1 second between changes
         }
+
+        embassy_time::Timer::after(Duration::from_secs(5)).await; // Wait 5 seconds before repeating
     }
 }
