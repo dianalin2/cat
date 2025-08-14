@@ -1,11 +1,10 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicI32, Ordering};
-use defmt::info;
+use defmt::{debug, info};
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::OutputType;
-use embassy_stm32::peripherals::{TIM1, TIM2};
+use embassy_stm32::peripherals::TIM1;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::Channel;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
@@ -13,41 +12,37 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Duration;
 use {defmt_rtt as _, panic_probe as _};
+mod servo;
 
-type SimplePwmMutex = Mutex<CriticalSectionRawMutex, Option<SimplePwm<'static, TIM1>>>;
-// type SimplePwmMutex = Mutex<CriticalSectionRawMutex, Option<SimplePwm<'static, TIM2>>>;
-static PWM: SimplePwmMutex = Mutex::new(None);
-static SERVO_POSITION: AtomicI32 = AtomicI32::new(0); // Initial position in angle (-90 to 90 degrees)
-static SERVO_POSITION_2: AtomicI32 = AtomicI32::new(0); // Initial position for second servo
+type TIMER = TIM1;
+
+static PWM: servo::SimplePwmMutex<TIMER> = Mutex::new(None);
+static SERVOS: Mutex<CriticalSectionRawMutex, [Option<servo::Servo<'static, TIMER>>; 2]> =
+    Mutex::new([None, None]);
 
 #[embassy_executor::task(pool_size = 4)]
 async fn servo_control(
-    pwm: &'static SimplePwmMutex,
-    channel: Channel,
-    servo_position: &'static AtomicI32,
+    servos: &'static Mutex<CriticalSectionRawMutex, [Option<servo::Servo<'static, TIMER>>; 2]>,
 ) {
-    if let Some(pwm_ref) = pwm.lock().await.as_mut() {
-        pwm_ref.channel(channel).enable();
-        info!("Servo control started!");
-    }
-
     loop {
-        let pos = servo_position.load(Ordering::Relaxed);
+        // Simulate changing the servo position
+        for pos in (-90..=90).step_by(45) {
+            info!("Setting servo position to {} degrees", pos);
 
-        if let Some(pwm_ref) = pwm.lock().await.as_mut() {
-            let duty_cycle = ((pos + 90 + 45) as u32) * (pwm_ref.max_duty_cycle() as u32) / 1800;
+            {
+                let servos = &servos.lock().await;
+                if let Some(servo) = &servos[0] {
+                    servo.set_position(pos).await;
+                }
+                if let Some(servo_2) = &servos[1] {
+                    servo_2.set_position(-pos).await;
+                }
+            }
 
-            info!(
-                "Updating servo position. Position: {} degrees, Duty Cycle: {}/{}",
-                pos,
-                duty_cycle,
-                pwm_ref.max_duty_cycle()
-            );
-
-            pwm_ref.channel(channel).set_duty_cycle(duty_cycle as u16);
+            embassy_time::Timer::after(Duration::from_millis(1000)).await; // Wait 1 second between changes
         }
 
-        embassy_time::Timer::after(Duration::from_millis(100)).await; // Update every 100 ms
+        embassy_time::Timer::after(Duration::from_secs(2)).await; // Wait 2 seconds before repeating
     }
 }
 
@@ -73,21 +68,19 @@ async fn main(spawner: Spawner) {
         *(PWM.lock().await) = Some(pwm);
     }
 
-    spawner
-        .spawn(servo_control(&PWM, Channel::Ch1, &SERVO_POSITION))
-        .unwrap();
-    spawner
-        .spawn(servo_control(&PWM, Channel::Ch2, &SERVO_POSITION_2))
-        .unwrap();
+    let servo_1 = servo::Servo::new(&PWM, Channel::Ch1).await;
+    let servo_2 = servo::Servo::new(&PWM, Channel::Ch2).await;
+
+    {
+        let mut servos_lock = SERVOS.lock().await;
+        servos_lock[0] = Some(servo_1);
+        servos_lock[1] = Some(servo_2);
+    }
+
+    spawner.spawn(servo_control(&SERVOS)).unwrap();
 
     loop {
-        // Simulate changing the servo position
-        for pos in (-90..=90).step_by(45) {
-            SERVO_POSITION.store(pos, Ordering::Relaxed);
-            SERVO_POSITION_2.store(-pos, Ordering::Relaxed);
-            embassy_time::Timer::after(Duration::from_millis(1000)).await; // Wait 1 second between changes
-        }
-
-        embassy_time::Timer::after(Duration::from_secs(5)).await; // Wait 5 seconds before repeating
+        debug!("HEARTBEAT");
+        embassy_time::Timer::after(Duration::from_secs(1)).await;
     }
 }
