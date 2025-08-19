@@ -26,23 +26,42 @@ async fn servo_control(
 ) {
     loop {
         // Simulate changing the servo position
-        for pos in (-90..=90).step_by(45) {
-            info!("Setting servo position to {} degrees", pos);
+        // for pos in (-90..=90).step_by(45) {
+        //     info!("Setting servo position to {} degrees", pos);
 
-            {
-                let servos = &servos.lock().await;
-                if let Some(servo) = &servos[0] {
-                    servo.set_position(pos).await;
-                }
-                if let Some(servo_2) = &servos[1] {
-                    servo_2.set_position(-pos).await;
+        //     {
+        //         let servos = &servos.lock().await;
+        //         if let Some(servo) = &servos[0] {
+        //             servo.set_position(pos).await;
+        //         }
+        //         if let Some(servo_2) = &servos[1] {
+        //             servo_2.set_position(-pos).await;
+        //         }
+        //     }
+
+        //     embassy_time::Timer::after(Duration::from_millis(1000)).await; // Wait 1 second between changes
+        // }
+        {
+            let servos = &servos.lock().await;
+            for (i, servo) in servos.iter().enumerate() {
+                if let Some(servo) = servo {
+                    info!("Setting servo {} position to 0 degrees", i + 1);
+                    servo.set_position(0).await; // Set all servos to 0 degrees
                 }
             }
-
-            embassy_time::Timer::after(Duration::from_millis(1000)).await; // Wait 1 second between changes
         }
 
         embassy_time::Timer::after(Duration::from_secs(2)).await; // Wait 2 seconds before repeating
+    }
+}
+
+async fn zero_servo_positions() {
+    info!("Zeroing servo positions");
+    let mut servos = SERVOS.lock().await;
+    for servo in servos.iter_mut() {
+        if let Some(s) = servo {
+            s.set_position(0).await;
+        }
     }
 }
 
