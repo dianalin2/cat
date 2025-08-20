@@ -39,7 +39,7 @@ function Canvas() {
       x: Math.max(0, Math.min(pos.x, dimensions.x)),
       y: Math.max(0, Math.min(pos.y, dimensions.y)),
     };
-    bounded = handleCircleBoundary(bounded, totalLength * 0.99, true);
+    bounded = handleCircleBoundary(bounded, totalLength * 0.999, true);
     bounded = handleCircleBoundary(bounded, innerRadius * 1.01, false);
     return bounded;
   }
@@ -73,10 +73,6 @@ function Canvas() {
     const jointAboutOrigin = calculateJointPos(goalAboutOrigin, lengths);
     jointPositions.joint = vectorAdd(jointAboutOrigin, origin)
   }, [jointPositions])
-
-  console.log(dimensions);
-  console.log(jointPositions);
-
 
   return (
     <div className="border rounded-xl">
