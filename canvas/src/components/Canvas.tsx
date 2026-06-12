@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Stage, Layer, Rect, Circle, Line } from 'react-konva';
-
 import { calculateJointPos, vectorDiff, vectorAdd } from '../utils/calculations';
+import { RosContext } from '../RosProvider';
+import { Topic } from 'roslib';
 
 type Position = {
   x: number;
@@ -9,6 +10,10 @@ type Position = {
 }
 
 function Canvas() {
+  const { ros, isConnected } = useContext(RosContext);
+
+  const [servoAngles, setServoAngles] = useState<{ base: number; elbow: number }>({ base: 0, elbow: 0 });
+
   const widthPortion = 0.8;
   const heightPortion = 0.8;
   const [dimensions, setDimensions] = useState<Position>({
@@ -71,11 +76,45 @@ function Canvas() {
   useEffect(() => {
     const goalAboutOrigin = vectorDiff(jointPositions.goal, origin);
     const jointAboutOrigin = calculateJointPos(goalAboutOrigin, lengths);
-    jointPositions.joint = vectorAdd(jointAboutOrigin, origin)
-  }, [jointPositions])
+    const calculatedJoint = vectorAdd(jointAboutOrigin, origin);
 
-  console.log(dimensions);
-  console.log(jointPositions);
+    // Directly update positions object
+    setJointPositions(prev => ({ ...prev, joint: calculatedJoint }));
+
+    // --- SERVO ANGLE CALCULATION ---
+    const dx1 = calculatedJoint.x - origin.x;
+    const dy1 = calculatedJoint.y - origin.y;
+    const baseAngleRad = Math.atan2(dy1, dx1);
+
+    const dx2 = jointPositions.goal.x - calculatedJoint.x;
+    const dy2 = jointPositions.goal.y - calculatedJoint.y;
+    const elbowAngleAbsRad = Math.atan2(dy2, dx2);
+
+    let elbowAngleRelRad = elbowAngleAbsRad - baseAngleRad;
+    elbowAngleRelRad = Math.atan2(Math.sin(elbowAngleRelRad), Math.cos(elbowAngleRelRad));
+
+    setServoAngles({
+      base: Math.round(baseAngleRad * (180 / Math.PI)),
+      elbow: Math.round(elbowAngleRelRad * (180 / Math.PI))
+    });
+  }, [jointPositions.goal, origin])
+
+  useEffect(() => {
+    console.log('Servo Angles:', servoAngles);
+
+    if (!ros || !isConnected) {
+      console.log('ROS is not connected');
+      return;
+    }
+
+    const commandTopic = new Topic({
+      ros: ros,
+      name: '/teleop',
+      messageType: 'msgs/msg/Teleop',
+    });
+
+    commandTopic.publish(servoAngles);
+  }, [servoAngles])
 
 
   return (

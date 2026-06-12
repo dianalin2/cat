@@ -18,6 +18,6 @@ class FeedbackNode(Node):
         self.get_logger().info("FeedbackNode has been initialized.")
 
     def encoder_callback(self, msg):
-        self.get_logger().info(f"Received encoder feedback data: {[f'{name}: {position:.2f}' for name, position in zip(msg.name, msg.position)]}")
+        self.get_logger().debug(f"Received encoder feedback data: {[f'{name}: {position:.2f}' for name, position in zip(msg.name, msg.position)]}")
         
     

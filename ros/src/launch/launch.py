@@ -26,5 +26,11 @@ def generate_launch_description():
             executable='feedback_node',
             name='feedback_node',
             output='screen'
+        ),
+        Node(
+            package='teleop_node',
+            executable='teleop_node',
+            name='teleop_node',
+            output='screen'
         )
     ])

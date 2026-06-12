@@ -1,8 +1,8 @@
 from rclpy.node import Node
-from msgs.msg import EncoderFeedback
+from msgs.msg import MotorCommands, EncoderFeedback
 from rclpy.qos import QoSProfile
 from serial_node.serial import SerialHandler
-from serial_node.constants import FEEDBACK_PACKETS
+from serial_node.constants import FEEDBACK_PACKETS, TELEOP_HEADER
 
 RECV_HZ = 20
 
@@ -20,12 +20,11 @@ class SerialNode(Node):
 
         self.serial_handler = SerialHandler(port=port, baudrate=baudrate, mock_serial=mock_serial)
 
+        self.motor_command_subscriber = self.create_subscription(MotorCommands, 'motor_commands', self.motor_command_callback, QoSProfile(depth=10))
         self.encoder_publisher = self.create_publisher(EncoderFeedback, 'encoder_feedback', QoSProfile(depth=10))
         self.timer = self.create_timer(1.0 / RECV_HZ, self.read_serial_data)
 
         self.feedback_packet_map = {(packet['header'], packet['length']): packet for packet in FEEDBACK_PACKETS}
-        self.get_logger().info(f"Feedback Packet Map: {self.feedback_packet_map}")
-        
         self.get_logger().info("SerialNode has been initialized.")
         
     def read_serial_data(self):
@@ -59,3 +58,8 @@ class SerialNode(Node):
         else:
             self.get_logger().warning(f"No parser/publisher implemented for message type: {packet_info['msg_type']}")
             return None
+
+    def motor_command_callback(self, msg):
+        self.get_logger().debug(f"Received MotorCommands: {msg.motor_commands}")
+        payload = bytes(msg.motor_commands)
+        self.serial_handler.write(header=TELEOP_HEADER, payload=payload)

@@ -27,6 +27,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EncoderFeedback.msg"
+  "msg/Teleop.msg"
+  "msg/MotorCommands.msg"
 )
 
 ament_package()

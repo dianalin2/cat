@@ -1,12 +1,14 @@
 import struct
 from collections import deque
 from serial_node.constants import START_BYTE, FEEDBACK_HEADER
+from rclpy.logging import get_logger
 
 class Serial:
     def __init__(self, port, baudrate, timeout=1):
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
+        self.logger = get_logger('mock_serial')
         self.buffer = deque()  # Use deque for efficient pops from the left
         self.reset_input_buffer()
     
@@ -36,8 +38,7 @@ class Serial:
         return bytes(data)
 
     def write(self, data):
-        # Simulate writing data to the serial port (for testing)
-        print(f"Mock Serial Write: {data}")
+        self.logger.info(f"Mock serial write: {data.hex()}")
 
     def close(self):
-        print("Mock Serial Port Closed")
+        self.logger.info("Mock serial port closed")
