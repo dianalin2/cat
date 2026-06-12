@@ -8,7 +8,7 @@
             "USERNAME": "diana"
         }
     },
-    "workspaceFolder": "/home/ws/ros",
+    "workspaceFolder": "/home/ws/canvas",
     "workspaceMount": "source=${localWorkspaceFolder}/..,target=/home/ws,type=bind",
     "customizations": {
         "vscode": {
@@ -34,9 +34,12 @@
         "-e",
         "DISPLAY=${env:DISPLAY}"
     ],
+    "appPort": [
+        "5173:5173/tcp"
+    ],
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
         "source=/dev/dri,target=/dev/dri,type=bind,consistency=cached"
     ],
-    "postCreateCommand": "sudo rosdep update && sudo rosdep install --from-paths /home/ws/ros/src --ignore-src -y && sudo chown -R $(whoami) /home/ws/ && echo 'source /home/ws/ros/setup-terminal.sh' >> ~/.bashrc"
+    "postCreateCommand": "sudo chown -R $(whoami) /home/ws/ && echo 'source /home/ws/canvas/setup-terminal.sh' >> ~/.bashrc"
 }

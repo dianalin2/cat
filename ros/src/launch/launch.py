@@ -5,10 +5,14 @@ from launch.substitutions import EnvironmentVariable
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='rosbridge_server',
-            executable='rosbridge_websocket',
-            name='rosbridge_websocket',
-            output='screen',
+            package="rmw_zenoh_cpp",
+            executable="rmw_zenohd",
+            name="rmw_zenohd",
+            output="screen",
+            parameters=[
+                {"zenoh_router_port": 7447},
+                {"zenoh_router_log_level": "info"}
+            ]
         ),
         Node(
             package='serial_node',

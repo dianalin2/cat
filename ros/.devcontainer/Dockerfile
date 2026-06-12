@@ -19,7 +19,7 @@ RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y python3-pip
 ENV SHELL /bin/bash
 
-RUN apt-get install -y ros-kilted-rosbridge-suite
+RUN apt-get install -y ros-kilted-rmw-zenoh-cpp
 
 # [Optional] Automatically source ROS setup script when a new shell is launched
 RUN echo "source /opt/ros/kilted/setup.bash" >> /home/$USERNAME/.bashrc

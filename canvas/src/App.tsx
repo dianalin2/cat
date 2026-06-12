@@ -54,7 +54,7 @@ function App() {
         <h1 className="w-full text-center text-2xl mb-5">Cat Leg Movement</h1>
         {feedback && (
           <div className="w-full text-center mb-5">
-            <pre className="bg-gray-100 p-2 rounded">{
+            <pre className="bg-gray-100 p-2 rounded w-[100vw] overflow-x-auto">{
               Object.entries(feedback).map(([name, data]) => `${name}: ${data.position}`).join(', ')
             }</pre>
           </div>
