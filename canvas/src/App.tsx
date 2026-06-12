@@ -4,9 +4,20 @@ import { Topic } from 'roslib';
 
 import Canvas from './components/Canvas.tsx'
 
+interface EncoderFeedback {
+  [key: string]: {
+    position: number;
+  }
+}
+
+interface EncoderFeedbackMessage {
+  name: string[];
+  position: number[];
+}
+
 function App() {
   const { ros, isConnected } = useContext(RosContext);
-  const [feedback, setFeedback] = useState<any>(null);
+  const [feedback, setFeedback] = useState<EncoderFeedback | null>(null);
 
   useEffect(() => {
     if (ros && isConnected) {
@@ -18,13 +29,22 @@ function App() {
 
     const feedbackListener = new Topic({
       ros: ros,
-      name: '/serial_data',
-      messageType: 'msgs/msg/SerialMessage',
+      name: '/encoder_feedback',
+      messageType: 'msgs/msg/EncoderFeedback',
     })
 
-    feedbackListener.subscribe((message) => {
+    feedbackListener.subscribe((message: unknown) => {
+      const typedMessage = message as EncoderFeedbackMessage;
       console.log('Received feedback:', message);
-      setFeedback(message);
+
+      const feedbackData: EncoderFeedback = {};
+      for (let i = 0; i < typedMessage.name.length; i++) {
+        const name = typedMessage.name[i];
+        const value = typedMessage.position[i];
+        feedbackData[name] = { position: value };
+      }
+
+      setFeedback(feedbackData);
     });
   }, [isConnected]);
 
@@ -34,15 +54,14 @@ function App() {
         <h1 className="w-full text-center text-2xl mb-5">Cat Leg Movement</h1>
         {feedback && (
           <div className="w-full text-center mb-5">
-            <p>Received Feedback:</p>
-            <pre className="bg-gray-100 p-2 rounded">{Array.from(atob(feedback.payload)).map((byte, index) => (
-              <span key={index}>{byte.charCodeAt(0).toString(16).padStart(2, '0')}</span>
-            ))}</pre>
+            <pre className="bg-gray-100 p-2 rounded">{
+              Object.entries(feedback).map(([name, data]) => `${name}: ${data.position}`).join(', ')
+            }</pre>
           </div>
         )}
         <Canvas />
       </div>
-    </div>
+    </div >
   )
 }
 

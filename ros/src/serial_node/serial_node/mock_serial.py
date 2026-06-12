@@ -1,3 +1,4 @@
+import struct
 from collections import deque
 from serial_node.constants import START_BYTE, FEEDBACK_HEADER
 
@@ -10,10 +11,10 @@ class Serial:
         self.reset_input_buffer()
     
     def reset_input_buffer(self):
-        length = 5
+        length = 8
 
         self.buffer.clear()
-        for x in [START_BYTE, FEEDBACK_HEADER, length] + [0x7f] * length:
+        for x in [START_BYTE, FEEDBACK_HEADER, length * 4] + list(struct.pack('<8f', *([0] * length))):
             self.buffer.append(x)
 
         self.in_waiting = len(self.buffer)
