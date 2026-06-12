@@ -1,6 +1,0 @@
-services:
-  ros:
-    build: .
-    # entrypoint: [ "ros2", "launch" ]
-    volumes:
-      - ./:/ros_ws/src

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(serial_node)
+project(msgs)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,23 +7,9 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-
-add_executable(serial_node
-  src/serial_handler.cpp
-  src/main.cpp
-)
-
-target_include_directories(serial_node
-  PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-ament_target_dependencies(serial_node
-  rclcpp
-  std_msgs
-)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -36,5 +22,11 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/SerialMessage.msg"
+)
 
 ament_package()

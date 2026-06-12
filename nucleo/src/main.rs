@@ -3,24 +3,81 @@
 
 use defmt::{debug, info};
 use embassy_executor::Spawner;
+use embassy_stm32::bind_interrupts;
 use embassy_stm32::gpio::OutputType;
-use embassy_stm32::peripherals::TIM1;
+use embassy_stm32::mode::Async;
+use embassy_stm32::peripherals;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::Channel;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
+use embassy_stm32::usart::Uart;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Duration;
 use {defmt_rtt as _, panic_probe as _};
 mod servo;
 
-type TIMER = TIM1;
+type TIMER = peripherals::TIM1;
 
 static PWM: servo::SimplePwmMutex<TIMER> = Mutex::new(None);
 static SERVOS: Mutex<CriticalSectionRawMutex, [Option<servo::Servo<'static, TIMER>>; 2]> =
     Mutex::new([None, None]);
 
-#[embassy_executor::task(pool_size = 4)]
+type UartMutex<'a> = Mutex<CriticalSectionRawMutex, Option<Uart<'a, Async>>>;
+static UART: UartMutex = Mutex::new(None);
+
+bind_interrupts!(
+    struct Irqs {
+        USART2 => embassy_stm32::usart::InterruptHandler<peripherals::USART2>;
+    }
+);
+
+#[embassy_executor::task]
+async fn uart_receiver(uart_mutex: &'static UartMutex<'static>) {
+    loop {
+        // Simulate receiving data over UART
+        info!("UART Receiver Task: Waiting for data...");
+        let mut buffer = [0u8; 8];
+        {
+            let mut guard = uart_mutex.lock().await;
+            if let Some(uart) = guard.as_mut() {
+                match uart.read(&mut buffer).await {
+                    Ok(size) => {
+                        info!("UART Receiver Task: Received {} bytes", size);
+                    }
+                    Err(e) => {
+                        info!("UART Receiver Task: Error reading data: {:?}", e);
+                        continue; // Retry on error
+                    }
+                }
+            } else {
+                info!("UART Receiver Task: UART not initialized");
+                continue; // Retry if UART is not initialized
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn uart_transmitter(uart_mutex: &'static UartMutex<'static>) {
+    loop {
+        info!("UART Transmitter Task: Writing data...");
+        let buffer = b"AAAAAAAA";
+        {
+            let mut guard = uart_mutex.lock().await;
+            if let Some(uart) = guard.as_mut() {
+                uart.write(buffer).await.unwrap_or_else(|e| {
+                    info!("UART Transmitter Task: Error writing data: {:?}", e);
+                });
+            } else {
+                info!("UART Transmitter Task: UART not initialized");
+                continue; // Retry if UART is not initialized
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
 async fn servo_control(
     servos: &'static Mutex<CriticalSectionRawMutex, [Option<servo::Servo<'static, TIMER>>; 2]>,
 ) {
@@ -97,6 +154,25 @@ async fn main(spawner: Spawner) {
     }
 
     spawner.spawn(servo_control(&SERVOS)).unwrap();
+
+    let uart = embassy_stm32::usart::Uart::new(
+        p.USART2,
+        p.PA3,
+        p.PA2,
+        Irqs,
+        p.DMA1_CH6,
+        p.DMA1_CH5,
+        embassy_stm32::usart::Config::default(),
+    )
+    .unwrap();
+
+    {
+        let mut uart_guard = UART.lock().await;
+        *uart_guard = Some(uart);
+    }
+
+    spawner.spawn(uart_receiver(&UART)).unwrap();
+    spawner.spawn(uart_transmitter(&UART)).unwrap();
 
     loop {
         debug!("HEARTBEAT");
